@@ -1,0 +1,13 @@
+# Môi trường & cache
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# Output benchmark (raw per-run — không version; số chốt ghi vào README/model card)
+runs/
+
+# Model weights không nằm trong repo — tải từ HF: scripts/download_models.py
+models/
+*.bin

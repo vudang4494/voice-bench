@@ -1,0 +1,29 @@
+# Core harness (bắt buộc)
+numpy>=1.24
+scipy>=1.11
+jiwer>=3.0
+pyyaml>=6.0
+soundfile>=0.12
+
+# ASR engines (chọn theo nhu cầu)
+faster-whisper>=1.0        # Whisper large-v3
+transformers>=4.40         # PhoWhisper
+torch>=2.1
+
+# TTS engines
+TTS>=0.22                  # Coqui, cho viXTTS (XTTS)
+vinorm                     # normalize text VN cho viXTTS
+requests                   # VietTTS HTTP client
+
+# Fidelity / naturalness (optional)
+speechbrain>=1.0           # ECAPA-TDNN speaker embedding
+torchaudio                 # resample cho speaker_sim
+
+# Test
+pytest>=7.0
+
+# Service HTTP (voicebench.service)
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart
+httpx                      # TestClient

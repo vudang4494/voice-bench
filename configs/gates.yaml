@@ -1,0 +1,36 @@
+# Quality gates — RULES CHUẨN product phải vượt qua (chạy: scripts/verify_product.py).
+#
+# Ngưỡng đặt từ số đo T7 chốt 2026-07-05 (Mac Mini M4 24GB, CPU int8,
+# PhoWhisper-small-ct2, decode params tuned trong configs/service.yaml;
+# benchmark chuẩn: data/eval/ = 50 clips VIVOS test stride + file ghép 3:16)
+# cộng headroom 15-35% cho nhiễu máy dev. NGUYÊN TẮC: gate fail = product tệ đi
+# hoặc máy đổi — điều tra, KHÔNG nới ngưỡng cho qua. Model/máy khác dùng file
+# gates riêng.
+profile: phowhisper-small-ct2 @ mac-mini-m4-cpu-int8
+
+unit_tests:
+  must_pass: true          # pytest -q phải 100% pass (verify skill Mức 1)
+
+functional:                # test case chức năng qua đường HTTP thật (TestClient)
+  health_ok: true          # GET /health -> 200, status=ok, warmed
+  wav_ok: true             # POST wav thật -> 200, text khác rỗng, đủ trường latency
+  silence_ok: true         # wav im lặng 2s -> 200, không crash (text rỗng là hợp lệ — VAD)
+  garbage_400: true        # bytes rác -> 400 rõ ràng, không được 500
+  empty_400: true          # file rỗng -> 400
+  tts_503_when_unconfigured: true  # /v1/tts chưa có engine -> 503 kèm lý do (contract lỗi rõ)
+
+per_utterance:             # benchmark chuẩn 50 clips, corpus-pooled, keep_tone
+                           # (số đo 2026-07-05: WER 6.24% CER 3.17% p50 1.51s p90 1.75s)
+  wer_max: 0.070
+  cer_max: 0.040
+  infer_p50_max_s: 1.9
+  infer_p90_max_s: 2.4
+  empty_hyp_max: 0         # không clip nào được trả text rỗng
+
+longform:                  # file 3:16 / 1 request (số đo 2026-07-05: WER 9.17%, RTF 0.144)
+  wer_max: 0.105
+  rtf_max: 0.20
+
+determinism:               # cùng input phải ra cùng text (CT2 CPU deterministic)
+  repeat_n: 5
+  require_identical_text: true

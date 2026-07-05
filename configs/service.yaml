@@ -1,0 +1,34 @@
+# Config cho voicebench.service (HTTP STT/TTS).
+# Target chuẩn hiện tại: Mac Mini M4 24GB, CPU int8 (chuẩn hóa 2026-07-05).
+# Trên box 4090 (tương lai): đổi device: cuda, compute_type: int8_float16 hoặc float16.
+warmup: 2
+
+asr:
+  name: faster-whisper
+  kwargs:
+    model_id: vudang449/PhoWhisper-small-ct2   # VN-tuned, CT2 (mirror của diepho/PhoWhisper-small-ct2); cần accuracy → configs/service.large.yaml
+    device: cpu
+    compute_type: int8
+    language: vi
+    # Decode params T7 (tune trên M4, runs/tune_longform_small.json +
+    # runs/diag_per_utt_small.json) — thắng ở CẢ per-utterance lẫn long-form:
+    #   per-utt  WER 6.24% (baseline 6.61%), p50 1.51s
+    #   long-form 3min WER 9.17% (baseline 18.35% — mất nội dung ranh giới 30s)
+    # KHÔNG hạ beam_size xuống 1: clip ngắn hallucinate insertions (WER 12.7-13.0%)
+    # dù long-form nhanh hơn 40%. Cần beam1 long-form riêng thì dùng
+    # longform_min_s + longform: {beam_size: 1} (profile switch trong engine).
+    beam_size: 5
+    vad_filter: true
+    vad_parameters:
+      min_silence_duration_ms: 300
+      speech_pad_ms: 400
+    condition_on_previous_text: false
+
+# tts: CHƯA bật trên máy này — cần checkpoint viXTTS + fix deps (ROADMAP T4).
+# tts:
+#   name: vixtts
+#   kwargs:
+#     model_path: /path/to/viXTTS/model
+#     config_path: /path/to/viXTTS/config.json
+#     device: cuda
+#     language: vi

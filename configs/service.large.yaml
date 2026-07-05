@@ -1,0 +1,22 @@
+# Biến thể accuracy-ceiling: PhoWhisper-large CT2 (chậm hơn nhiều trên CPU).
+# Số đo v2 2026-07-06 (runs/bench_models_medium_large.json + service_eval v2):
+#   per-utt : params MẶC ĐỊNH 5.50% | params T7 5.87% (VAD+noCond làm large TỆ ĐI nhẹ)
+#   long-form: params T7 5.50% RTF 0.693 (accuracy tốt nhất trên M4, vẫn < realtime)
+# → dùng profile theo độ dài: clip ngắn giữ mặc định, file >= 30s chuyển params T7.
+warmup: 1
+
+asr:
+  name: faster-whisper
+  kwargs:
+    model_id: vudang449/PhoWhisper-large-ct2   # mirror của kiendt/PhoWhisper-large-ct2
+    device: cpu
+    compute_type: int8
+    language: vi
+    beam_size: 5
+    longform_min_s: 30
+    longform:
+      vad_filter: true
+      vad_parameters:
+        min_silence_duration_ms: 300
+        speech_pad_ms: 400
+      condition_on_previous_text: false

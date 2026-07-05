@@ -1,0 +1,27 @@
+# voice-bench config. Đổi engine = đổi 'name' + 'kwargs', không sửa code.
+seed: 42
+warmup: 2
+output_dir: runs
+keep_tone: true            # WER/CER giữ dấu thanh (đo lỗi tone); report đọc từ run_meta.json, override bằng --no-keep-tone
+tts_input_source: ref_text # ref_text = cô lập lỗi TTS | asr_text = echo thực tế
+speaker_sim: true
+mos: false                 # bật nếu đã cài UTMOS (torch.hub)
+save_tts_audio: false
+
+asr:
+  name: phowhisper         # phowhisper | faster-whisper
+  kwargs:
+    model_id: vinai/PhoWhisper-large
+    device: cuda
+
+tts:
+  name: vixtts             # vixtts | viettts-http
+  kwargs:
+    model_path: /path/to/viXTTS/model
+    config_path: /path/to/viXTTS/config.json
+    device: cuda
+    language: vi
+
+dataset:
+  manifest: data/manifest.jsonl  # mỗi dòng: {"id","audio","text"}
+  limit: null                    # số int để chạy thử subset
