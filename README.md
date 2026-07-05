@@ -7,7 +7,7 @@ Model weights **không nằm trong repo** — tải từ HuggingFace ([vudang449
 ## Quickstart (clone về là chạy)
 
 ```bash
-git clone https://github.com/nhockid235/voice-bench && cd voice-bench
+git clone https://github.com/vudang4494/voice-bench && cd voice-bench
 python3.11 -m venv venv
 venv/bin/pip install -r requirements.txt
 
