@@ -1,0 +1,18 @@
+# ỨNG VIÊN serving mới (đo 2026-07-06, runs/bench_vivos_chunkformer.json +
+# bench_ood_chunkformer.json) — ChunkFormer-large-vie THẮNG small-ct2 hiện tại
+# trên MỌI metric:
+#   VIVOS per-utt : WER 5.50% (= large-ct2, hơn small 6.24%) | p50 0.17s (small 1.51s)
+#   long-form     : WER 6.61% RTF 0.073 (small 9.17% / 0.143)
+#   OOD VietMed   : WER 18.81% — TỐT NHẤT (small 22.20%, large 25.12%)
+# Không bị floor padding 30s của whisper -> lần đầu đạt <500ms với WER < 10%.
+# Chưa làm default vì: cần user chốt + gates.yaml cần baseline mới + soak test.
+warmup: 2
+
+asr:
+  name: chunkformer
+  kwargs:
+    model_id: vudang449/chunkformer-large-vie   # mirror của khanhld/chunkformer-large-vie (CC-BY-NC-4.0)
+    device: cpu
+    # chunk_size/left/right_context giữ default 64/128/128 (khuyến nghị tác giả);
+    # audio >= longform_min_s dùng endless_decode (không giới hạn độ dài).
+    longform_min_s: 30

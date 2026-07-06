@@ -127,3 +127,55 @@ def test_short_clip_keeps_default_profile():
     assert "vad_filter" not in k
     assert k["condition_on_previous_text"] is True
     assert k["beam_size"] == 5
+
+
+# --- ChunkFormer: routing batch/endless theo độ dài + contract đo lường ---
+
+from voicebench.engines.asr_chunkformer import ChunkFormerASR  # noqa: E402
+
+
+class _FakeChunkFormer:
+    def __init__(self):
+        self.called = None
+        self.path = None
+
+    def batch_decode(self, paths, **kw):
+        self.called, self.path = "batch", paths[0]
+        return ["văn bản ngắn"]
+
+    def endless_decode(self, path, **kw):
+        self.called, self.path = "endless", path
+        return "văn bản dài"
+
+
+def _make_cf(longform_min_s=30.0):
+    eng = object.__new__(ChunkFormerASR)
+    eng._model = _FakeChunkFormer()
+    eng._load_s = 0.0
+    eng._chunk, eng._lctx, eng._rctx = 64, 128, 128
+    eng._longform_min_s = longform_min_s
+    eng._max_sil = 0.5
+    eng._batch_dur = 1800
+    return eng
+
+
+def test_chunkformer_clip_ngan_dung_batch_decode():
+    eng = _make_cf()
+    res = eng.transcribe(np.zeros(16000 * 2, dtype=np.float32), 16000)
+    assert eng._model.called == "batch"
+    assert res.text == "văn bản ngắn"
+    assert abs(res.audio_dur_s - 2.0) < 1e-6
+    assert res.latency.total_s > 0
+
+
+def test_chunkformer_longform_dung_endless_decode():
+    eng = _make_cf()
+    res = eng.transcribe(np.zeros(16000 * 31, dtype=np.float32), 16000)
+    assert eng._model.called == "endless"
+    assert res.text == "văn bản dài"
+
+
+def test_chunkformer_tat_longform_luon_batch():
+    eng = _make_cf(longform_min_s=None)
+    eng.transcribe(np.zeros(16000 * 31, dtype=np.float32), 16000)
+    assert eng._model.called == "batch"

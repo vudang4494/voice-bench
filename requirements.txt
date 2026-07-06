@@ -6,13 +6,15 @@ pyyaml>=6.0
 soundfile>=0.12
 
 # ASR engines (chọn theo nhu cầu)
-faster-whisper>=1.0        # Whisper large-v3
-transformers>=4.40         # PhoWhisper
+faster-whisper>=1.0        # PhoWhisper CT2 (serving mặc định)
+chunkformer>=1.2           # ChunkFormer-large-vie (ứng viên serving, T9)
+transformers>=4.40,<5      # PhoWhisper HF; <5 vì coqui-tts chưa hỗ trợ transformers 5.x
 torch>=2.1
 
 # TTS engines
-TTS>=0.22                  # Coqui, cho viXTTS (XTTS)
-vinorm                     # normalize text VN cho viXTTS
+coqui-tts>=0.27            # fork idiap còn maintain (TTS 0.22 gốc xung khắc transformers mới)
+torchcodec                 # audio IO cho coqui-tts khi torch >= 2.9
+vinorm                     # normalize text VN cho viXTTS — binary Linux, KHÔNG chạy macOS (engine fallback text thô)
 requests                   # VietTTS HTTP client
 
 # Fidelity / naturalness (optional)

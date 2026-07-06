@@ -1,0 +1,28 @@
+# Service ĐẦY ĐỦ STT + TTS (T4 thông 2026-07-06 nhờ coqui-tts fork idiap).
+# TTS viXTTS trên CPU M4: RTF ~0.96 (nhanh hơn realtime nhẹ), round-trip smoke
+# WER 8.7% (scripts/smoke_tts.py). Cần checkpoint: scripts/download_models.py --tts
+# Lưu ý macOS: vinorm (normalize chữ số/viết tắt) là binary Linux, không chạy
+# -> text có chữ số sẽ đọc sai; engine tự fallback text thô + warning.
+warmup: 1
+
+asr:
+  name: faster-whisper
+  kwargs:
+    model_id: vudang449/PhoWhisper-small-ct2
+    device: cpu
+    compute_type: int8
+    language: vi
+    beam_size: 5
+    vad_filter: true
+    vad_parameters:
+      min_silence_duration_ms: 300
+      speech_pad_ms: 400
+    condition_on_previous_text: false
+
+tts:
+  name: vixtts
+  kwargs:
+    model_path: models/viXTTS
+    config_path: models/viXTTS/config.json
+    device: cpu
+    language: vi

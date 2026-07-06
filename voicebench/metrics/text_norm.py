@@ -51,6 +51,30 @@ def _punct_to_space(m: "re.Match[str]") -> str:
     return "" if unicodedata.category(m.group()) == "Mn" else " "
 
 
+# --- Biến thể chính tả hợp lệ (T9): hóa/hoá, kì/kỳ — KHÔNG phải lỗi ASR. ---
+# Fold là OPT-IN (số WER phụ). Chỉ 2 lớp biến thể được cộng đồng chấp nhận:
+# 1) Vị trí dấu thanh kiểu cũ/mới trên cụm oa/oe/uy (hóa/hoá, khỏe/khoẻ, thúy/thuý)
+#    -> canonical: dấu đặt trên nguyên âm SAU (kiểu mới). Làm trên NFD.
+#    Cụm ua/oi/ay... KHÔNG fold: "hay"/"hai", "nói" là từ khác nhau, không phải biến thể.
+#    "thuở/thủa" là biến thể TỪ VỰNG, không fold (horn chắn giữa o và dấu thanh nên regex né sẵn).
+# 2) i/y là nguyên âm duy nhất sau phụ âm đầu h/k/l/m/s/t/qu (kì/kỳ, lí/lý, quí/quý)
+#    -> canonical: i. KHÔNG áp cho y sau nguyên âm (ay/uy nguyên cụm) hay "ý" đứng đầu từ.
+_TONE_OA_OE = re.compile(r"o([̣̀́̃̉])([ae])")
+_TONE_UY = re.compile(r"u([̣̀́̃̉])(y)")
+_Y_WORD = re.compile(r"\b(qu|[hklmst])([yỳýỷỹỵ])\b")
+_Y2I = {"y": "i", "ỳ": "ì", "ý": "í", "ỷ": "ỉ", "ỹ": "ĩ", "ỵ": "ị"}
+
+
+def fold_spelling_variants(text: str) -> str:
+    """Gộp biến thể chính tả hợp lệ về 1 dạng canonical để chúng không bị tính
+    là lỗi. Input phải đã qua normalize_vi (lowercase, NFC). Trả về NFC."""
+    d = unicodedata.normalize("NFD", text)
+    d = _TONE_OA_OE.sub(r"o\2\1", d)
+    d = _TONE_UY.sub(r"u\2\1", d)
+    text = unicodedata.normalize("NFC", d)
+    return _Y_WORD.sub(lambda m: m.group(1) + _Y2I[m.group(2)], text)
+
+
 def normalize_vi(text: str, keep_tone: bool = True) -> str:
     if text is None:
         return ""

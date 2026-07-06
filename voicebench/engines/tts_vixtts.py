@@ -31,7 +31,8 @@ class ViXTTS(TTSEngine):
             from TTS.tts.configs.xtts_config import XttsConfig
             from TTS.tts.models.xtts import Xtts
         except ImportError as e:
-            raise ImportError("pip install TTS  # Coqui, cho XTTS") from e
+            raise ImportError("pip install coqui-tts  # fork idiap còn maintain, "
+                              "TTS 0.22 gốc xung khắc transformers mới") from e
         import time
         t0 = time.perf_counter()
         cfg = XttsConfig(); cfg.load_json(config_path)
@@ -50,6 +51,23 @@ class ViXTTS(TTSEngine):
         self._sr = int(sr)
         self._lang = language
         self._norm = normalize_vi_text
+        # coqui-tts chưa có 'vi' trong whitelist tokenizer (fork thinhlpg cho
+        # viXTTS thêm đúng chỗ này) -> monkeypatch instance: tiền xử lý tối
+        # thiểu tương đương multilingual_cleaners nhưng không đụng bảng
+        # abbreviations/symbols (KeyError với 'vi'). Chữ số do vinorm lo (khi
+        # có); ở đây không expand số.
+        tok = getattr(self._model, "tokenizer", None)
+        if tok is not None and hasattr(tok, "preprocess_text"):
+            import re as _re
+            tok.char_limits.setdefault("vi", 250)
+            _orig = tok.preprocess_text
+
+            def _preprocess(txt: str, lang: str, _orig=_orig):
+                if lang.split("-")[0] == "vi":
+                    return _re.sub(r"\s+", " ", txt.replace('"', "").lower()).strip()
+                return _orig(txt, lang)
+
+            tok.preprocess_text = _preprocess
         self._load_s = time.perf_counter() - t0
 
     def _prep_text(self, text: str) -> str:
@@ -60,6 +78,11 @@ class ViXTTS(TTSEngine):
             return TTSnorm(text)
         except ImportError:
             logger.warning("Thiếu 'vinorm' -> dùng text thô (chữ số/viết tắt có thể đọc sai)")
+            return text
+        except OSError as e:
+            # vinorm 2.x ship binary Linux x86-64 — trên macOS arm64 exec fail.
+            # Không được chết cả synth vì normalizer: fallback text thô.
+            logger.warning("vinorm không chạy được trên platform này (%s) -> text thô", e)
             return text
 
     def synthesize(self, text: str, ref_wav: np.ndarray, ref_sr: int) -> TTSResult:

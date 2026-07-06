@@ -58,3 +58,43 @@ def test_orphan_combining_mark_not_word_boundary():
     # 'İ'.lower() = i + U+0307 (không precompose được): mark bị xoá,
     # KHÔNG thành space tách từ ('i stanbul' là sai)
     assert normalize_vi("İstanbul") == "istanbul"
+
+
+# --- fold_spelling_variants: biến thể chính tả hợp lệ, KHÔNG phải lỗi ASR ---
+
+def test_fold_tone_placement_oa_oe_uy():
+    from voicebench.metrics.text_norm import fold_spelling_variants as fold
+    # kiểu cũ (dấu trên nguyên âm trước) == kiểu mới (dấu trên nguyên âm sau)
+    assert fold("hóa") == fold("hoá")
+    assert fold("khỏe") == fold("khoẻ")
+    assert fold("thúy") == fold("thuý")
+    assert fold("ủy ban") == fold("uỷ ban")
+
+
+def test_fold_i_y_after_onset():
+    from voicebench.metrics.text_norm import fold_spelling_variants as fold
+    assert fold("kì") == fold("kỳ")
+    assert fold("lí") == fold("lý")
+    assert fold("mĩ") == fold("mỹ")
+    assert fold("quí") == fold("quý")
+    assert fold("tị nạn") == fold("tỵ nạn")
+
+
+def test_fold_khong_dong_cham_tu_khac_nhau():
+    from voicebench.metrics.text_norm import fold_spelling_variants as fold
+    # ay/ai là TỪ khác nhau, không phải biến thể
+    assert fold("hay") != fold("hai")
+    # tone trên 'o' đứng một mình (nói) không nằm trong cụm oa/oe -> giữ nguyên
+    assert fold("nói") == "nói"
+    # thuở/thủa là biến thể từ vựng -> KHÔNG fold
+    assert fold("thuở") != fold("thủa")
+    # 'ý' không có phụ âm đầu -> giữ nguyên; 'ngày' y sau nguyên âm -> giữ nguyên
+    assert fold("ý") == "ý"
+    assert fold("ngày") == "ngày"
+
+
+def test_fold_variants_trong_corpus_wer():
+    from voicebench.metrics.wer import corpus_wer
+    refs, hyps = ["quy hoạch kỳ lạ"], ["quy hoạch kì lạ"]
+    assert corpus_wer(refs, hyps)["wer"] > 0          # số chính: vẫn tính là lỗi
+    assert corpus_wer(refs, hyps, fold_variants=True)["wer"] == 0.0  # số phụ

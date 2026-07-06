@@ -6,6 +6,7 @@ from typing import Any
 _ASR = {
     "phowhisper": ("voicebench.engines.asr_phowhisper", "PhoWhisperASR"),
     "faster-whisper": ("voicebench.engines.asr_whisper", "FasterWhisperASR"),
+    "chunkformer": ("voicebench.engines.asr_chunkformer", "ChunkFormerASR"),
 }
 _TTS = {
     "vixtts": ("voicebench.engines.tts_vixtts", "ViXTTS"),

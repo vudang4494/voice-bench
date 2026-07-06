@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Sequence
 import jiwer
 
-from .text_norm import normalize_vi
+from .text_norm import fold_spelling_variants, normalize_vi
 
 
 def compute_wer(ref: str, hyp: str, keep_tone: bool = True) -> float:
@@ -24,11 +24,17 @@ def compute_cer(ref: str, hyp: str, keep_tone: bool = True) -> float:
 
 
 def _corpus(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool,
-            process, unit_key: str, rate_key: str) -> dict:
+            process, unit_key: str, rate_key: str,
+            fold_variants: bool = False) -> dict:
     if len(refs) != len(hyps):
         raise ValueError(f"refs ({len(refs)}) != hyps ({len(hyps)})")
     r = [normalize_vi(x, keep_tone) for x in refs]
     h = [normalize_vi(x, keep_tone) for x in hyps]
+    if fold_variants:
+        # Số PHỤ: gộp biến thể chính tả hợp lệ (hóa/hoá, kì/kỳ) trước khi so.
+        # Gates/baseline dùng số CHÍNH (fold_variants=False) — đừng đổi mặc định.
+        r = [fold_spelling_variants(x) for x in r]
+        h = [fold_spelling_variants(x) for x in h]
     out = process(r, h)
     n = out.substitutions + out.deletions + out.hits
     if n == 0 and out.insertions > 0:
@@ -48,12 +54,17 @@ def _corpus(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool,
     }
 
 
-def corpus_wer(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool = True) -> dict:
+def corpus_wer(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool = True,
+               fold_variants: bool = False) -> dict:
     """WER toàn corpus = (S+D+I)/N_words_ref. Trả kèm breakdown lỗi.
-    Raise ValueError nếu ref rỗng toàn bộ mà hyp có từ (hallucination không được = 0.0)."""
-    return _corpus(refs, hyps, keep_tone, jiwer.process_words, "ref_words", "wer")
+    Raise ValueError nếu ref rỗng toàn bộ mà hyp có từ (hallucination không được = 0.0).
+    fold_variants=True: số PHỤ đã gộp biến thể chính tả hợp lệ (hóa/hoá, kì/kỳ)."""
+    return _corpus(refs, hyps, keep_tone, jiwer.process_words, "ref_words", "wer",
+                   fold_variants)
 
 
-def corpus_cer(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool = True) -> dict:
+def corpus_cer(refs: Sequence[str], hyps: Sequence[str], keep_tone: bool = True,
+               fold_variants: bool = False) -> dict:
     """CER toàn corpus, pooled S/D/I trên tổng ký tự ref — cùng phương pháp corpus_wer."""
-    return _corpus(refs, hyps, keep_tone, jiwer.process_characters, "ref_chars", "cer")
+    return _corpus(refs, hyps, keep_tone, jiwer.process_characters, "ref_chars", "cer",
+                   fold_variants)
