@@ -109,4 +109,4 @@ Mỗi run ghi `results.jsonl` (raw per-sample, re-aggregate được), `run_meta
 
 ## License & attribution
 
-Model: PhoWhisper của [VinAI Research](https://huggingface.co/vinai) (BSD-3-Clause), bản convert CTranslate2 từ cộng đồng (diepho, kiendt); ChunkFormer của [khanhld](https://github.com/khanld/chunkformer) — **code/kiến trúc CC-BY-4.0** (thương mại OK, cần ghi công) nhưng **weights `chunkformer-large-vie` CC-BY-NC-4.0** (KHÔNG dùng thương mại; muốn thương mại: xin license tác giả hoặc train lại weights trên data permissive); viXTTS của [capleaf](https://huggingface.co/capleaf/viXTTS). Mirror trên vudang449 giữ nguyên trọng số. Data eval: VIVOS (AILAB VNUHCM, CC BY-NC-SA 4.0), VietMed (leduckhai).
+Ghi công đầy đủ (tác giả, license từng model/lib/dataset, trích dẫn) ở **[ATTRIBUTIONS.md](ATTRIBUTIONS.md)**. Tóm tắt: PhoWhisper (VinAI, BSD-3) và ChunkFormer code (Khanh Le — khanhld, CC-BY-4.0) tự do; weights ChunkFormer (CC-BY-NC-4.0) và data eval (VIVOS CC BY-NC-SA, VietMed) chỉ phi thương mại. Mirror trên vudang449 giữ nguyên trọng số.

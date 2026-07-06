@@ -1,6 +1,6 @@
-# PROFILE FAST chính thức (dual-stack, user chốt 2026-07-06) — dùng cho mục đích
-# PHI THƯƠNG MẠI/dev/demo. Weights CC-BY-NC-4.0 (code CC-BY-4.0 thì thương mại OK);
-# default thương mại vẫn là service.yaml (PhoWhisper-small, BSD-3).
+# PROFILE FAST chính thức (dual-stack, chốt 2026-07-06) — phi thương mại/dev/demo;
+# default thương mại vẫn là service.yaml. Model: ChunkFormer của Khanh Le (khanhld)
+# — ghi công & license đầy đủ: ATTRIBUTIONS.md.
 # Số đo (runs/bench_vivos_chunkformer.json + bench_ood_chunkformer.json) —
 # thắng small-ct2 trên MỌI metric:
 #   VIVOS per-utt : WER 5.50% (= large-ct2, hơn small 6.24%) | p50 0.17s (small 1.51s)
@@ -12,10 +12,8 @@ warmup: 2
 asr:
   name: chunkformer
   kwargs:
-    # Load từ thư mục local (offline; tạo bằng `download_models.py --chunkformer`).
-    # Nội dung = weights chunkformer-large-vie (sha256 c9c9d6e0... đã verify) —
-    # license CC-BY-NC-4.0 đi theo NỘI DUNG file, không theo tên/đường dẫn.
-    # Không có thư mục local thì đổi lại: vudang449/chunkformer-large-vie (tải từ HF).
+    # Load từ thư mục local (offline; tạo bằng `download_models.py --chunkformer`);
+    # không có thư mục local thì đổi lại: vudang449/chunkformer-large-vie (tải từ HF).
     model_id: models/chunkformer-large-vie
     device: cpu
     # chunk_size/left/right_context giữ default 64/128/128 (khuyến nghị tác giả);
