@@ -12,7 +12,11 @@ warmup: 2
 asr:
   name: chunkformer
   kwargs:
-    model_id: vudang449/chunkformer-large-vie   # mirror của khanhld/chunkformer-large-vie (CC-BY-NC-4.0)
+    # Load từ thư mục local (offline; tạo bằng `download_models.py --chunkformer`).
+    # Nội dung = weights chunkformer-large-vie (sha256 c9c9d6e0... đã verify) —
+    # license CC-BY-NC-4.0 đi theo NỘI DUNG file, không theo tên/đường dẫn.
+    # Không có thư mục local thì đổi lại: vudang449/chunkformer-large-vie (tải từ HF).
+    model_id: models/chunkformer-large-vie
     device: cpu
     # chunk_size/left/right_context giữ default 64/128/128 (khuyến nghị tác giả);
     # audio >= longform_min_s dùng endless_decode (không giới hạn độ dài).

@@ -17,18 +17,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 MODELS = {
-    "small": "vudang449/PhoWhisper-small-ct2",       # configs/service.yaml (mặc định)
-    "large": "vudang449/PhoWhisper-large-ct2",       # configs/service.large.yaml
-    "chunkformer": "khanhld/chunkformer-large-vie",  # configs/service.chunkformer.yaml
+    "small": "vudang449/PhoWhisper-small-ct2",  # configs/service.yaml (mặc định)
+    "large": "vudang449/PhoWhisper-large-ct2",  # configs/service.large.yaml
 }
-TTS_REPO = "capleaf/viXTTS"  # configs/service.tts.yaml — cần local_dir cố định
+# ChunkFormer + viXTTS tải về local_dir cố định (configs trỏ models/<tên>)
+CHUNKFORMER_REPO = "vudang449/chunkformer-large-vie"  # configs/service.chunkformer.yaml
+TTS_REPO = "capleaf/viXTTS"                           # configs/service.tts.yaml
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--large", action="store_true", help="tải bản large thay vì small")
     ap.add_argument("--chunkformer", action="store_true",
-                    help="tải ChunkFormer (ứng viên serving mới)")
+                    help="tải ChunkFormer về models/chunkformer-large-vie (profile fast)")
     ap.add_argument("--tts", action="store_true", help="tải viXTTS về models/viXTTS")
     ap.add_argument("--all", action="store_true", help="tải tất cả")
     args = ap.parse_args()
@@ -42,15 +43,20 @@ def main() -> int:
     if args.all:
         keys = list(MODELS)
     else:
-        keys = ([k for k, on in (("large", args.large),
-                                 ("chunkformer", args.chunkformer)) if on]
-                or ([] if args.tts else ["small"]))
+        keys = ([k for k in ("large",) if args.large]
+                or ([] if (args.tts or args.chunkformer) else ["small"]))
 
     for k in keys:
         repo = MODELS[k]
         print(f"Tải {k}: {repo} ...")
         path = snapshot_download(repo)
         print(f"  -> {path}")
+
+    if args.chunkformer or args.all:
+        dst = ROOT / "models/chunkformer-large-vie"
+        print(f"Tải chunkformer: {CHUNKFORMER_REPO} -> {dst} ...")
+        snapshot_download(CHUNKFORMER_REPO, local_dir=str(dst))
+        print(f"  -> {dst}")
 
     if args.tts or args.all:
         dst = ROOT / "models/viXTTS"
