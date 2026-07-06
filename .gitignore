@@ -16,5 +16,11 @@ models/
 # tính toàn vẹn kiểm bằng data/manifest_v1.sha256 (manifest + checksum CÓ commit)
 data/manifest_v1/clips/
 
+# Train mix v1 clips (17GB, CC-BY) không version — dựng lại: scripts/build_asr_train_mix.py;
+# manifest_train/trainval_v1 + build_stats + FREEZE.sha256 CÓ commit để tái lập
+data/train_mix_v1/clips/
+# parts/ = shard trung gian + .done marker để resume builder (35MB scratch), không version
+data/train_mix_v1/parts/
+
 # Build metadata cua pip install -e
 *.egg-info/

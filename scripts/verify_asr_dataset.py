@@ -196,25 +196,35 @@ class Verifier:
         r = self.rules["integrity"]
         n = len(rows)
         texts = [norm_text(row["text"]) for row in rows]
-        dup_extra = sum(c - 1 for c in Counter(texts).values() if c > 1)
-        top_rep = Counter(texts).most_common(1)
-        audio_hashes = Counter()
-        for row in rows:
-            audio_hashes[hashlib.sha1(open(row["audio"], "rb").read()).hexdigest()] += 1
-        audio_dup = sum(c - 1 for c in audio_hashes.values() if c > 1)
+        ahash = [hashlib.sha1(open(row["audio"], "rb").read()).hexdigest()
+                 for row in rows]
+        audio_dup = sum(c - 1 for c in Counter(ahash).values() if c > 1)
+        # "Trùng nguy hiểm" = trùng CẢ text LẪN audio (caption spam / nhân bản 1
+        # clip). Trùng text nhưng KHÁC audio (bản tin đọc lại intro/outro; nhiều
+        # người đọc cùng bài) = ĐA DẠNG ÂM HỌC, tốt cho ASR — không phạt, chỉ giữ
+        # backstop chống loop/synthetic. (Đo thật mix v1: text lặp 20 lần là news
+        # boilerplate VLSP, 20 audio đều KHÁC nhau -> không phải spam.)
+        ta = Counter(zip(texts, ahash))
+        spam_extra = sum(c - 1 for c in ta.values() if c > 1)
+        spam_rep_max = max(ta.values()) if ta else 0
+        text_cnt = Counter(texts)
+        variety_rep_max = max(text_cnt.values()) if text_cnt else 0
+        variety_dup_pct = 100.0 * sum(c - 1 for c in text_cnt.values() if c > 1) / n
+        cap = r.get("distinct_audio_text_repeat_max", 100)
         evals = load_eval_refs()
         contam = sum(1 for t in texts if t in evals)
 
-        self.gate("INT-dup-text", 100.0 * dup_extra / n <= r["dup_text_max_pct"],
-                  f"{100.0 * dup_extra / n:.2f}% text trùng (<= {r['dup_text_max_pct']}%);"
-                  f" lặp nhiều nhất {top_rep[0][1] if top_rep else 0} lần"
-                  f" (<= {r['single_text_repeat_max']})")
-        self.gate("INT-rep-text",
-                  (top_rep[0][1] if top_rep else 0) <= r["single_text_repeat_max"],
-                  f"một text lặp tối đa {top_rep[0][1] if top_rep else 0} lần"
-                  f" (<= {r['single_text_repeat_max']}) — bắt caption spam")
+        self.gate("INT-dup-text", 100.0 * spam_extra / n <= r["dup_text_max_pct"],
+                  f"{100.0 * spam_extra / n:.2f}% row trùng CẢ text+audio (spam)"
+                  f" (<= {r['dup_text_max_pct']}%)")
+        self.gate("INT-rep-text", spam_rep_max <= r["single_text_repeat_max"],
+                  f"1 cặp (text,audio) lặp tối đa {spam_rep_max} lần"
+                  f" (<= {r['single_text_repeat_max']}) — bắt caption spam/nhân bản")
         self.gate("INT-dup-audio", audio_dup == 0,
                   f"{audio_dup} audio trùng hash (phải 0)")
+        self.gate("INT-text-variety", variety_rep_max <= cap,
+                  f"[đa dạng âm học] text lặp nhiều nhất {variety_rep_max} lần /"
+                  f" {variety_dup_pct:.1f}% row trùng text (khác audio) — backstop <= {cap}")
         self.gate("INT-eval-contam", contam == 0,
                   f"{contam} row trùng text với eval sets của product (phải 0 —"
                   f" so {len(evals)} refs: VIVOS/VietMed/manifest_v1/dev)")

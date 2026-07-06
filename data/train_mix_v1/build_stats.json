@@ -1,0 +1,18 @@
+{
+ "n_raw": 97279,
+ "n_train": 93959,
+ "n_val": 934,
+ "hours": 152.1,
+ "drop_rate_pct": 2.45,
+ "drops": {
+  "qua_ngan_text": 818,
+  "nhiem_eval": 39,
+  "duration": 497,
+  "chu_so": 276,
+  "charset_la": 3,
+  "gan_cam": 508,
+  "lech_audio_text": 218,
+  "audio_trung": 27
+ },
+ "longform_pct": 9.2
+}

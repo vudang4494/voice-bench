@@ -46,8 +46,14 @@ audio:
   mix_longform_min_pct: 10
 
 integrity:
-  dup_text_max_pct: 2.0          # text trùng tự nhiên cho phép ít
-  single_text_repeat_max: 5      # 1 câu lặp > 5 lần = caption spam / hallucination
+  # "Trùng nguy hiểm" = trùng CẢ text LẪN audio (caption spam / nhân bản 1 clip).
+  # Trùng text nhưng KHÁC audio (bản tin đọc lại intro/outro qua nhiều số; nhiều
+  # người đọc cùng bài báo) = ĐA DẠNG ÂM HỌC, TỐT cho ASR — KHÔNG phạt. Đo thật
+  # mix v1: 1 text lặp 20 lần (news boilerplate VLSP) nhưng 20 audio đều khác.
+  dup_text_max_pct: 2.0          # % row trùng CẢ text+audio (spam); đo được 0%
+  single_text_repeat_max: 5      # 1 cặp (text,audio) lặp > 5 = caption spam/nhân bản
+  distinct_audio_text_repeat_max: 100  # backstop: text lặp > 100 lần dù audio khác
+                                       # = nghi synthetic/loop (đo thật max 20 << 100)
   # audio hash trùng: 0 tuyệt đối (check trong code)
   # anti-join eval: 0 tuyệt đối — so với data/eval + data/eval_ood +
   # manifest_v1 + manifest_dev (check trong code, list trong verify script)
@@ -73,3 +79,31 @@ build:
   # oversample trước split làm eval ảo). Val theo SPEAKER/nguồn nếu có metadata.
   val_before_processing: true
   seed: 42
+  # Chuẩn hoá target ĐƯỢC PHÉP tự sửa (khớp normalize_vi eval + output serving):
+  # NFC + lowercase + strip dấu câu + fold biến thể dấu thanh (hóa->hoá, lý->lí)
+  # + gộp whitespace. Dấu câu = STRIP (không drop row). Chữ số = DROP row (không
+  # verbalize được trên mac: vinorm Linux-only; '5' vs 'năm' làm lệch target).
+
+# ---- Bổ sung cho giai đoạn thêm VietSpeech/Bud500 (social/pseudo-label) ----
+# 3 bộ CC-BY (vlsp/fosd/infore1) là studio-clean nên KHÔNG kích hoạt các rule
+# dưới (charset_la=1/97k). Nhưng VietSpeech scrape social + nghi pseudo-label
+# ViWhisper -> BẮT BUỘC bật các check này TRƯỚC khi trộn (findings từ vòng phản
+# biện đa-agent 2026-07-06, 7/8 agent verify):
+social_stage:
+  # HAL-01 (full-scan, chạy TRƯỚC dedup): blacklist ~30-60 cụm hallucination
+  # boilerplate Whisper-VN ("hãy subscribe cho kênh", "ghiền mì gõ", "cảm ơn
+  # các bạn đã theo dõi"...) — pseudo-label hay chèn; row chứa -> drop + log.
+  hallucination_blacklist: true
+  # TXT-05 (full-scan): blacklist ~100 teencode/viết tắt (ko, k, dc, đc, vs,
+  # bik, mik, cx, ny, mn, wa, vk, ck...) — lọt charset vì toàn chữ VN hợp lệ
+  # nhưng sai chính tả -> nhiễu target. Đo tỉ lệ per-dataset, ngưỡng < 1%.
+  teencode_max_pct: 1.0
+  # TN-11+ (full-scan): detector loop n-gram tổng quát (chu kỳ 1..6, lặp >= k)
+  # bắt transcript lặp vô hạn của model gán nhãn — không chỉ token đơn.
+  ngram_loop_detect: true
+  # QC-05/06 (sample): overlapped-speech + music-only detection (pyannote OSD)
+  # cho data hội thoại/recap; cờ metadata produced=true khi frac im lặng thấp.
+  overlap_music_qc_sample: true
+  # DIST-01 (full-scan, ~0 cost): clean_report BẮT BUỘC có histogram duration
+  # per-dataset + mix; MIX-01: field group_id để cân bằng domain/accent.
+  require_duration_histogram: true
