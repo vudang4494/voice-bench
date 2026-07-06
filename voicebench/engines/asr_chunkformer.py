@@ -52,16 +52,21 @@ class ChunkFormerASR(ASREngine):
         self._batch_dur = int(total_batch_duration)
 
     def transcribe(self, wav: np.ndarray, sr: int) -> ASRResult:
+        import os
         import tempfile
         dur = duration_s(wav, sr)
         with measure() as t:
             wav16 = resample(wav, sr, 16000)
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as f:
-                save_wav(f.name, wav16, 16000)
+            # mkstemp + đóng fd trước khi ghi/đọc theo path: mở lại file đang mở
+            # không portable (Windows); chi phí ghi/xoá vẫn TRONG cửa sổ đo.
+            fd, tmp = tempfile.mkstemp(suffix=".wav")
+            os.close(fd)
+            try:
+                save_wav(tmp, wav16, 16000)
                 if (self._longform_min_s is not None
                         and dur >= self._longform_min_s):
                     text = self._model.endless_decode(
-                        f.name, chunk_size=self._chunk,
+                        tmp, chunk_size=self._chunk,
                         left_context_size=self._lctx,
                         right_context_size=self._rctx,
                         total_batch_duration=self._batch_dur,
@@ -69,10 +74,12 @@ class ChunkFormerASR(ASREngine):
                         max_silence_duration=self._max_sil)
                 else:
                     text = self._model.batch_decode(
-                        [f.name], chunk_size=self._chunk,
+                        [tmp], chunk_size=self._chunk,
                         left_context_size=self._lctx,
                         right_context_size=self._rctx,
                         total_batch_duration=self._batch_dur)[0]
+            finally:
+                os.unlink(tmp)
             text = str(text).strip()
         lat = LatencyBreakdown(total_s=t[0], media_dur_s=dur, model_load_s=self._load_s)
         return ASRResult(text=text, latency=lat, audio_dur_s=dur)

@@ -11,3 +11,10 @@ runs/
 # Model weights không nằm trong repo — tải từ HF: scripts/download_models.py
 models/
 *.bin
+
+# Audio manifest_v1 không version (130MB) — dựng lại: scripts/build_manifest_v1.py;
+# tính toàn vẹn kiểm bằng data/manifest_v1.sha256 (manifest + checksum CÓ commit)
+data/manifest_v1/clips/
+
+# Build metadata cua pip install -e
+*.egg-info/

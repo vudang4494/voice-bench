@@ -6,8 +6,9 @@ Thiết kế:
   (total_s đã device-sync, model_load_s riêng, rtf) + server_total_s.
   Client tự đo wall time HTTP để có lớp network/overhead.
 - Warmup lúc startup (loại cold-start khỏi request đầu).
-- TTS: chỉ bật khi config có mục `tts`; không có -> 503 nói rõ lý do
-  (máy dev chưa có checkpoint viXTTS — xem ROADMAP T4).
+- TTS: chỉ bật khi config có mục `tts` (vd configs/service.tts.yaml); không có
+  -> 503 nói rõ lý do. /v1/tts nhận multipart form: field `text` + file
+  `ref_audio` (tùy chọn, để voice-clone) — KHÔNG nhận path server-side.
 
 Chạy:
     venv/bin/uvicorn voicebench.service:app --host 127.0.0.1 --port 8386
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from .audio import duration_s
@@ -119,7 +120,8 @@ def create_app(config: dict | None = None, asr_engine=None, tts_engine=None) -> 
             },
             "tts": {"available": state["tts"] is not None,
                     "reason": None if state["tts"] is not None
-                    else "Chưa cấu hình TTS engine (cần checkpoint — ROADMAP T4)"},
+                    else "Chưa cấu hình TTS engine (dùng config có mục 'tts', "
+                         "vd configs/service.tts.yaml)"},
         }
 
     max_upload = int(float(cfg.get("max_upload_mb", 100)) * 1024 * 1024)
@@ -160,27 +162,32 @@ def create_app(config: dict | None = None, asr_engine=None, tts_engine=None) -> 
             "engine": getattr(state["asr"], "name", None),
         }
 
+    # multipart form (KHÔNG nhận path server-side — client upload ref audio như
+    # /v1/asr upload file; nhận path tùy ý là lỗ đọc file nội bộ, ROADMAP T4).
     @app.post("/v1/tts")
-    def tts_endpoint(payload: dict) -> Response:
+    def tts_endpoint(text: str = Form(...),
+                     ref_audio: UploadFile | None = File(None)) -> Response:
         if state["tts"] is None:
             raise HTTPException(
                 status_code=503,
-                detail="TTS chưa khả dụng trên host này: chưa có checkpoint viXTTS "
-                       "+ xung khắc TTS<->transformers trong venv (ROADMAP T4).")
-        text = (payload or {}).get("text")
-        if not isinstance(text, str) or not text.strip():
-            raise HTTPException(status_code=400, detail="'text' phải là string khác rỗng")
+                detail="TTS chưa khả dụng trên host này: chạy config có mục 'tts' "
+                       "(vd configs/service.tts.yaml, checkpoint: "
+                       "scripts/download_models.py --tts).")
         text = text.strip()
-        ref_path = (payload or {}).get("ref_audio")
-        if ref_path:
-            if not isinstance(ref_path, str):
-                raise HTTPException(status_code=400, detail="'ref_audio' phải là string")
-            from .audio import load_wav
-            try:
-                ref_wav, ref_sr = load_wav(ref_path)
-            except Exception as e:  # noqa: BLE001 — lỗi input client -> 400
+        if not text:
+            raise HTTPException(status_code=400, detail="'text' phải khác rỗng")
+        if ref_audio is not None:
+            data = ref_audio.file.read(max_upload + 1)
+            if len(data) > max_upload:
+                raise HTTPException(status_code=413,
+                                    detail=f"ref_audio vượt giới hạn "
+                                           f"{max_upload // (1024*1024)}MB")
+            if not data:
+                raise HTTPException(status_code=400, detail="ref_audio rỗng")
+            ref_wav, ref_sr = decode_audio_bytes(data)  # 400 nếu không decode được
+            if len(ref_wav) == 0:
                 raise HTTPException(status_code=400,
-                                    detail=f"Không đọc được ref_audio: {e}") from e
+                                    detail="ref_audio 0 mẫu sau decode")
         else:
             ref_wav, ref_sr = np.zeros(16000, dtype=np.float32), 16000
         r = state["tts"].synthesize(text, ref_wav, ref_sr)

@@ -1,3 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicebench"
+version = "0.1.0"
+description = "Harness đo latency + accuracy cho voice pipeline tiếng Việt (STT + TTS round-trip)"
+requires-python = ">=3.11"
+# Core harness: import voicebench.metrics/report PHẢI chạy được không cần torch.
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "jiwer>=3.0",
+    "pyyaml>=6.0",
+    "soundfile>=0.12",
+]
+
+# Extras theo tier engine (khớp requirements.txt) — cài đúng phần cần:
+#   pip install -e '.[asr-fw,service]'   # serving STT mặc định (PhoWhisper CT2)
+#   pip install -e '.[tts-xtts]'         # viXTTS. vinorm là HARD-DEP có chủ đích:
+#                                        # số benchmark không được phụ thuộc
+#                                        # normalizer thiếu im lặng (ROADMAP T4).
+[project.optional-dependencies]
+asr-fw = ["faster-whisper>=1.0"]
+asr-pho = ["transformers>=4.40,<5", "torch>=2.1"]
+asr-chunkformer = ["chunkformer>=1.2"]
+tts-xtts = ["coqui-tts>=0.27", "torchcodec", "vinorm", "torch>=2.1"]
+tts-viettts = ["requests"]
+quality = ["speechbrain>=1.0", "torchaudio"]
+service = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart", "httpx"]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["voicebench*"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]

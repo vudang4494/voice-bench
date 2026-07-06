@@ -26,6 +26,9 @@ class ASREngine(ABC):
 
 class TTSEngine(ABC):
     name: str = "tts-base"
+    # Engine KHÔNG voice-clone (bỏ qua ref_wav) đặt False — run_benchmark dựa vào
+    # cờ này để tự tắt speaker_sim (ghi null), không so tên engine bằng string.
+    supports_cloning: bool = True
 
     @abstractmethod
     def synthesize(self, text: str, ref_wav: np.ndarray, ref_sr: int) -> TTSResult:

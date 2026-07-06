@@ -37,6 +37,11 @@ from voicebench.metrics.text_norm import normalize_vi  # noqa: E402
 
 GATES = []  # list[dict]: {group, name, passed, measured, threshold}
 
+# Câu smoke TTS: chữ thuần không chữ số/viết tắt — vinorm không chạy trên macOS
+# (binary Linux) nên text vào thẳng XTTS; round-trip WER chỉ có nghĩa với chữ thuần.
+TTS_SMOKE_TEXT = ("Xin chào, đây là bài kiểm tra tổng hợp giọng nói tiếng Việt "
+                  "của voice bench, chạy trên máy tính để bàn nhỏ.")
+
 
 def gate(group: str, name: str, passed: bool, measured, threshold) -> bool:
     GATES.append({"group": group, "name": name, "passed": bool(passed),
@@ -108,9 +113,9 @@ def run_functional(client, _g: dict, sample_wav_path: str) -> None:
     gate("functional", "empty_400", r.status_code == 400,
          f"HTTP {r.status_code}", "400")
 
-    r = client.post("/v1/tts", json={"text": "xin chào"})
+    r = client.post("/v1/tts", data={"text": "xin chào"})
     gate("functional", "tts_503_when_unconfigured", r.status_code == 503,
-         f"HTTP {r.status_code}", "503 kèm lý do (chưa có engine T4)")
+         f"HTTP {r.status_code}", "503 kèm lý do (config không có mục tts)")
 
 
 def run_benchmark(client, gates_cfg: dict, manifest: str, audio: str,
@@ -189,6 +194,55 @@ def run_benchmark(client, gates_cfg: dict, manifest: str, audio: str,
             "determinism": {"repeat_n": n, "mismatches": mismatches}}
 
 
+def run_tts_gates(client, g: dict, ref_clip: str) -> dict:
+    """Gate TTS: contract lỗi + synth thật (voice-clone từ 1 clip eval) +
+    nghe lại qua chính ASR của service (round-trip intelligibility)."""
+    import soundfile as sf
+    print("\n== 4. TTS gates (synth + round-trip qua ASR của service) ==")
+
+    r = client.post("/v1/tts", data={})
+    gate("tts", "missing_text_422", r.status_code == 422,
+         f"HTTP {r.status_code}", "422 (multipart thiếu field text)")
+
+    r = client.post("/v1/tts", data={"text": "xin chào"},
+                    files={"ref_audio": ("x.wav", b"khong phai audio" * 10,
+                                         "audio/wav")})
+    gate("tts", "ref_garbage_400", r.status_code == 400,
+         f"HTTP {r.status_code}", "400 (ref không decode được)")
+
+    ref = _clip(ref_clip)
+    r = client.post("/v1/tts", data={"text": TTS_SMOKE_TEXT},
+                    files={"ref_audio": (ref.name, ref.read_bytes(), "audio/wav")})
+    ok = (r.status_code == 200
+          and r.headers.get("content-type", "").startswith("audio/wav"))
+    gate("tts", "synth_ok", ok, f"HTTP {r.status_code}", "200 + audio/wav")
+    if not ok:
+        return {}
+
+    wav, sr = sf.read(io.BytesIO(r.content), dtype="float32")
+    dur = len(wav) / sr
+    rms = float(np.sqrt(np.mean(wav ** 2)))
+    rtf = float(r.headers.get("x-rtf", "nan"))
+    gate("tts", "min_dur_s", dur >= g["min_dur_s"],
+         f"{dur:.1f}s audio", f">= {g['min_dur_s']}s")
+    gate("tts", "min_rms", rms >= g["min_rms"],
+         f"RMS {rms:.3f}", f">= {g['min_rms']} (không câm)")
+    gate("tts", "rtf_max", rtf <= g["rtf_max"],
+         f"RTF {rtf:.2f}", f"<= {g['rtf_max']}")
+
+    ra = client.post("/v1/asr", files={"file": ("tts_out.wav", r.content,
+                                                "audio/wav")})
+    ra.raise_for_status()
+    hyp = ra.json()["text"]
+    w = corpus_wer([TTS_SMOKE_TEXT], [hyp])
+    gate("tts", "roundtrip_wer_max", w["wer"] <= g["roundtrip_wer_max"],
+         f"{w['wer']:.2%} (nghe lại: {hyp[:50]!r}...)",
+         f"<= {g['roundtrip_wer_max']:.0%}")
+    return {"tts": {"out_dur_s": round(dur, 1), "rms": round(rms, 3),
+                    "rtf": round(rtf, 3), "roundtrip_wer": round(w["wer"], 4),
+                    "roundtrip_text": hyp}}
+
+
 def write_report(out_dir: Path, meta: dict, numbers: dict) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     n_fail = sum(1 for g in GATES if not g["passed"])
@@ -205,7 +259,7 @@ def write_report(out_dir: Path, meta: dict, numbers: dict) -> None:
     for g in GATES:
         lines.append(f"| {g['group']}/{g['name']} | {g['measured']} | "
                      f"{g['threshold']} | {'✅ PASS' if g['passed'] else '❌ FAIL'} |")
-    if numbers:
+    if "per_utterance" in numbers:
         pu, lf = numbers["per_utterance"], numbers["longform"]
         lines += ["", "## Số benchmark chuẩn", "",
                   f"- Per-utterance ({pu['n_clips']} clips): WER {pu['wer']:.2%} "
@@ -214,6 +268,13 @@ def write_report(out_dir: Path, meta: dict, numbers: dict) -> None:
                   f"infer p50 {pu['infer_p50_s']}s p90 {pu['infer_p90_s']}s",
                   f"- Long-form: WER {lf['wer']:.2%}, RTF {lf['rtf']}, "
                   f"infer {lf['infer_s']}s, S/D/I {lf['S']}/{lf['D']}/{lf['I']}"]
+    if "tts" in numbers:
+        t = numbers["tts"]
+        lines += ["", "## Số TTS", "",
+                  f"- Synth: {t['out_dur_s']}s audio, RMS {t['rms']}, "
+                  f"RTF {t['rtf']}",
+                  f"- Round-trip WER {t['roundtrip_wer']:.2%} — nghe lại: "
+                  f"{t['roundtrip_text']!r}"]
     (out_dir / "verify_report.md").write_text("\n".join(lines) + "\n",
                                               encoding="utf-8")
     print(f"\n==> {verdict} — report: {out_dir}/verify_report.md")
@@ -232,7 +293,7 @@ def main() -> None:
     gates_cfg = yaml.safe_load(Path(args.gates).read_text(encoding="utf-8"))
     print(f"Gates profile: {gates_cfg.get('profile')}")
 
-    if not args.skip_pytest:
+    if not args.skip_pytest and "unit_tests" in gates_cfg:
         run_unit_tests(gates_cfg["unit_tests"])
 
     from fastapi.testclient import TestClient
@@ -243,10 +304,18 @@ def main() -> None:
     numbers = {}
     entries0 = json.loads(Path(args.manifest).read_text(encoding="utf-8")
                           .splitlines()[0])
+    # Mỗi nhóm gate chạy khi gates config CÓ section tương ứng — profile TTS
+    # (gates.tts.yaml) chỉ khai báo section tts, khỏi lặp lại benchmark ASR
+    # đã được gates.yaml mặc định rào.
     with TestClient(app) as client:  # __enter__ chạy startup: build engine + warmup
-        run_functional(client, gates_cfg["functional"], entries0["audio"])
-        numbers = run_benchmark(client, gates_cfg, args.manifest, args.audio,
-                                args.ref)
+        if "functional" in gates_cfg:
+            run_functional(client, gates_cfg["functional"], entries0["audio"])
+        if "per_utterance" in gates_cfg:
+            numbers = run_benchmark(client, gates_cfg, args.manifest, args.audio,
+                                    args.ref)
+        if "tts" in gates_cfg:
+            numbers.update(run_tts_gates(client, gates_cfg["tts"],
+                                         entries0["audio"]))
 
     import faster_whisper
     meta = {"timestamp": datetime.now().isoformat(timespec="seconds"),

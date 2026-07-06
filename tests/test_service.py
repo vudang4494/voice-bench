@@ -85,9 +85,9 @@ def test_asr_endpoint_empty_file(client):
 
 
 def test_tts_unavailable_503(client):
-    r = client.post("/v1/tts", json={"text": "xin chào"})
+    r = client.post("/v1/tts", data={"text": "xin chào"})
     assert r.status_code == 503
-    assert "T4" in r.json()["detail"]
+    assert "tts" in r.json()["detail"].lower()
 
 
 class _StubTTS:
@@ -123,20 +123,41 @@ def test_upload_size_limit_413():
         assert r.status_code == 413
 
 
-def test_tts_non_string_text_400(client_tts):
-    for bad in (None, 123, ["a"]):
-        r = client_tts.post("/v1/tts", json={"text": bad})
-        assert r.status_code == 400, f"text={bad!r} -> {r.status_code}"
+def test_tts_missing_text_422(client_tts):
+    # multipart form: thiếu field text -> FastAPI validation 422
+    r = client_tts.post("/v1/tts", data={})
+    assert r.status_code == 422
+
+
+def test_tts_blank_text_400(client_tts):
+    r = client_tts.post("/v1/tts", data={"text": "   "})
+    assert r.status_code == 400
+
+
+def test_tts_server_path_rejected(client_tts):
+    # Contract siết T4: KHÔNG còn nhận path server-side — ref_audio phải là file
+    # upload; gửi string path bị validation từ chối (422), không bao giờ mở path.
+    r = client_tts.post("/v1/tts", data={"text": "xin chào",
+                                         "ref_audio": "/etc/hosts"})
+    assert r.status_code == 422
 
 
 def test_tts_bad_ref_audio_400(client_tts):
-    r = client_tts.post("/v1/tts", json={"text": "xin chào",
-                                         "ref_audio": "/nonexistent/x.wav"})
+    r = client_tts.post("/v1/tts", data={"text": "xin chào"},
+                        files={"ref_audio": ("x.wav", b"khong phai audio",
+                                             "audio/wav")})
     assert r.status_code == 400
 
 
 def test_tts_ok_with_stub(client_tts):
-    r = client_tts.post("/v1/tts", json={"text": "xin chào"})
+    r = client_tts.post("/v1/tts", data={"text": "xin chào"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/wav"
+
+
+def test_tts_ok_with_ref_upload(client_tts):
+    r = client_tts.post("/v1/tts", data={"text": "xin chào"},
+                        files={"ref_audio": ("ref.wav", _wav_bytes(0.5))})
     assert r.status_code == 200
     assert r.headers["content-type"] == "audio/wav"
 

@@ -1,0 +1,20 @@
+# Quality gates cho PROFILE TTS (configs/service.tts.yaml — viXTTS voice-clone).
+# Chạy: venv/bin/python scripts/verify_product.py \
+#           --service-config configs/service.tts.yaml --gates configs/gates.tts.yaml
+#
+# Ngưỡng từ smoke đo thật 2026-07-06 (Mac Mini M4 CPU: RTF 0.96, round-trip WER
+# 8.7% — scripts/smoke_tts.py) + headroom. Chỉ khai báo section `tts`: benchmark
+# ASR đã được gates.yaml mặc định rào, không đo lặp ở đây. NGUYÊN TẮC chung:
+# gate fail = điều tra, KHÔNG nới ngưỡng.
+profile: vixtts @ mac-mini-m4-cpu
+
+unit_tests:
+  must_pass: true
+
+tts:
+  # Contract lỗi (multipart): thiếu text -> 422; ref_audio rác -> 400.
+  # Synth thật: clone giọng từ clip eval đầu tiên, câu smoke chữ thuần.
+  min_dur_s: 3.0           # câu ~20 từ phải ra >= 3s audio (smoke: ~10s)
+  min_rms: 0.01            # không được câm
+  rtf_max: 1.6             # smoke 0.96 + headroom nhiễu máy dev
+  roundtrip_wer_max: 0.35  # nghe lại qua ASR của service (smoke 8.7%)

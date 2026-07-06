@@ -97,6 +97,11 @@ def run(config_path: str) -> Path:
 
     tts_src = cfg.get("tts_input_source", "ref_text")  # ref_text | asr_text
     do_spk = cfg.get("speaker_sim", True)
+    # Engine không voice-clone (vd viettts-http bỏ qua ref_wav): speaker_sim
+    # vô nghĩa — tự tắt qua capability flag, ghi null cho MỌI sample.
+    if do_spk and not getattr(tts, "supports_cloning", True):
+        logger.warning("TTS '%s' không voice-clone -> speaker_sim = null", tts.name)
+        do_spk = False
     do_mos = cfg.get("mos", False)
     # keep_tone không dùng ở đây: chấm điểm nằm ở report.py, đọc lại từ
     # run_meta.json (config được dump nguyên vẹn bên dưới).

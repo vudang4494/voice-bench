@@ -86,16 +86,22 @@ class ViXTTS(TTSEngine):
             return text
 
     def synthesize(self, text: str, ref_wav: np.ndarray, ref_sr: int) -> TTSResult:
+        import os
         import tempfile
         from ..audio import save_wav
         text = self._prep_text(text)
         # Đo CẢ conditioning lẫn inference (định nghĩa total_s ở docstring module).
-        # XTTS lấy conditioning latents từ file ref -> lưu tạm.
+        # XTTS lấy conditioning latents từ file ref -> lưu tạm. mkstemp + đóng fd
+        # trước khi ghi/đọc theo path: mở lại file đang mở không portable (Windows).
         with measure() as t:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as f:
-                save_wav(f.name, ref_wav, ref_sr)
+            fd, tmp = tempfile.mkstemp(suffix=".wav")
+            os.close(fd)
+            try:
+                save_wav(tmp, ref_wav, ref_sr)
                 gpt_lat, spk_emb = self._model.get_conditioning_latents(
-                    audio_path=[f.name])
+                    audio_path=[tmp])
+            finally:
+                os.unlink(tmp)
             out = self._model.inference(
                 text=text, language=self._lang,
                 gpt_cond_latent=gpt_lat, speaker_embedding=spk_emb,
