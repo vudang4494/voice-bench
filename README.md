@@ -26,7 +26,7 @@ Các biến thể config (chạy qua `VOICEBENCH_SERVICE_CONFIG=<file> venv/bin/
 
 - `configs/service.yaml` — mặc định: PhoWhisper-small-ct2 (STT only).
 - `configs/service.large.yaml` — accuracy VIVOS cao nhất, chậm ~5× (lưu ý: ngoài domain KHÔNG tốt hơn small, xem bảng OOD).
-- `configs/service.chunkformer.yaml` — ứng viên mới: nhanh 9×, WER bằng large (tải model: `download_models.py --chunkformer`).
+- `configs/service.chunkformer.yaml` — profile fast: nhanh 9×, WER bằng large (tải model: `download_models.py --chunkformer`). **Chỉ dùng phi thương mại** — weights CC-BY-NC-4.0 (xem License).
 - `configs/service.tts.yaml` — STT + TTS viXTTS voice-clone (tải checkpoint: `download_models.py --tts`).
 
 ## Số đo chuẩn (Mac Mini M4 24GB, CPU int8, eval VIVOS-test 50 clips + long-form 3:16)
@@ -38,7 +38,7 @@ Các biến thể config (chạy qua `VOICEBENCH_SERVICE_CONFIG=<file> venv/bin/
 | **PhoWhisper-small-ct2** | **6.24%** (CER 3.17%) | **1.51s / 1.65s** | 9.17% / 0.143 | **serving mặc định** |
 | PhoWhisper-medium-ct2 | 6.97% | 4.26s / 4.58s | 8.26% / 0.368 | loại (thua small, chậm hơn) |
 | **PhoWhisper-large-ct2** | **5.50%** | 7.65s / 8.12s | **5.50%** / 0.693 | **profile accuracy** |
-| **ChunkFormer-large-vie** | **5.50%** (CER 2.91%) | **0.17s / 0.18s** | 6.61% / **0.073** | **ứng viên serving mới** — `configs/service.chunkformer.yaml` |
+| **ChunkFormer-large-vie** | **5.50%** (CER 2.91%) | **0.17s / 0.18s** | 6.61% / **0.073** | **profile fast (phi thương mại)** — `configs/service.chunkformer.yaml` |
 
 ChunkFormer (~110M, CTC chunk-based) bằng large trên VIVOS nhưng **nhanh hơn 45×**,
 không bị floor padding 30s của whisper — model duy nhất đạt <500ms với WER <10% trên M4.

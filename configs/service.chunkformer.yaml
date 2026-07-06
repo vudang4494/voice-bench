@@ -1,11 +1,12 @@
-# ỨNG VIÊN serving mới (đo 2026-07-06, runs/bench_vivos_chunkformer.json +
-# bench_ood_chunkformer.json) — ChunkFormer-large-vie THẮNG small-ct2 hiện tại
-# trên MỌI metric:
+# PROFILE FAST chính thức (dual-stack, user chốt 2026-07-06) — dùng cho mục đích
+# PHI THƯƠNG MẠI/dev/demo. Weights CC-BY-NC-4.0 (code CC-BY-4.0 thì thương mại OK);
+# default thương mại vẫn là service.yaml (PhoWhisper-small, BSD-3).
+# Số đo (runs/bench_vivos_chunkformer.json + bench_ood_chunkformer.json) —
+# thắng small-ct2 trên MỌI metric:
 #   VIVOS per-utt : WER 5.50% (= large-ct2, hơn small 6.24%) | p50 0.17s (small 1.51s)
 #   long-form     : WER 6.61% RTF 0.073 (small 9.17% / 0.143)
-#   OOD VietMed   : WER 18.81% — TỐT NHẤT (small 22.20%, large 25.12%)
+#   OOD VietMed   : WER 18.81% (caveat: VietMed nằm trong train data của nó)
 # Không bị floor padding 30s của whisper -> lần đầu đạt <500ms với WER < 10%.
-# Chưa làm default vì: cần user chốt + gates.yaml cần baseline mới + soak test.
 warmup: 2
 
 asr:
