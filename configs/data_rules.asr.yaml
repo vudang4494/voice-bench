@@ -1,0 +1,75 @@
+# Bộ rules chuẩn hóa + verify dataset ASR train tiếng Việt (T-STT-data, 2026-07-06)
+#
+# Triết lý: như configs/gates.yaml — gate FAIL = điều tra data/nguồn,
+# KHÔNG nới ngưỡng ở đây. Dataset chưa PASS verify_asr_dataset.py thì
+# KHÔNG được vào train mix (full fine-tune khắc data vào toàn bộ trọng số —
+# data bẩn là hỏng nền, LoRA sau cũng không cứu được).
+#
+# Target format của transcript train (khớp normalize eval + output serving):
+#   NFC + lowercase toàn bộ + KHÔNG dấu câu + KHÔNG chữ số (verbalize trước
+#   hoặc drop row) + giữ đủ dấu thanh/dấu phụ tiếng Việt + charset whitelist
+#   (a-ză â đ ê ô ơ ư + nguyên âm có thanh + f/j/w/z cho loanword + space).
+#   Builder chỉ được TỰ SỬA: NFC hoá, lowercase, gộp whitespace (kể cả
+#   NBSP/tab/zero-width). Mọi vi phạm khác -> DROP row (đếm lại), không sửa ngầm.
+#
+# Ngưỡng đặt từ số đo thật trên sample 300 câu/bộ (VietSpeech + Bud500,
+# 2026-07-06, scratchpad stats.json + qc_asr.json) + headroom nhỏ.
+
+text:
+  empty_rows_max_pct: 0.0        # ref rỗng: cấm tuyệt đối (đo được: 0%)
+  uppercase_rows_max_pct: 0.0    # chữ HOA: nỗi sợ số 1 — sau normalize phải là 0
+  punct_rows_max_pct: 0.5        # đo được 0%; chừa 0.5% cho sample khác
+  digit_rows_max_pct: 0.5        # chữ số phải verbalize/drop trước khi train
+  nfc_bad_rows_max_pct: 0.0      # Unicode phải NFC 100%
+  weird_ws_rows_max_pct: 0.5     # tab/NBSP/zero-width (Bud500 đo được 0.33%)
+  charset_bad_rows_max_pct: 0.5  # ký tự ngoài whitelist VN
+  min_words: 2                   # ref < 2 từ không đáng train
+  under_min_words_max_pct: 0.5
+
+audio:
+  sample_rate: 16000             # bắt buộc 100% (cả 2 bộ: 100% 16k)
+  dur_min_s: 0.8                 # quá ngắn = mảnh vụn
+  dur_max_s: 30.0                # cửa sổ whisper
+  dur_outlier_max_pct: 1.0
+  rms_min: 0.005                 # gần câm (Bud500 đo được 0.33%)
+  quiet_rows_max_pct: 1.0
+  clip_ratio_row_max: 0.01       # >1% mẫu chạm đỉnh = méo nặng
+  clipped_rows_max_pct: 1.5      # VietSpeech đo được 0.67%
+  wps_min: 0.5                   # words/second — bắt lệch audio-text
+  wps_max: 6.5                   # p95 đo được ~5.2
+  wps_outlier_max_pct: 2.0
+  # Phân bố duration: gate ở MIX level (không fail từng dataset):
+  # cả VietSpeech (p95 7.4s) lẫn Bud500 (max 4.5s) đều 0% clip dài —
+  # train mix PHẢI trộn nguồn có clip >= 10s (vd vlsp2020) đủ tỉ lệ này,
+  # không thì model quên long-form (bài học T7: mất nội dung ranh giới 30s).
+  longform_min_s: 10.0
+  mix_longform_min_pct: 10
+
+integrity:
+  dup_text_max_pct: 2.0          # text trùng tự nhiên cho phép ít
+  single_text_repeat_max: 5      # 1 câu lặp > 5 lần = caption spam / hallucination
+  # audio hash trùng: 0 tuyệt đối (check trong code)
+  # anti-join eval: 0 tuyệt đối — so với data/eval + data/eval_ood +
+  # manifest_v1 + manifest_dev (check trong code, list trong verify script)
+
+qc_asr:
+  # QC-by-ASR theo SAMPLE (full scan 1M clip = 47h, không khả thi):
+  # sample >= 300 câu trải đều shard; đo corpus WER giữa ref của dataset và
+  # ASR mạnh đã verify của product. Đã đo: VietSpeech 3.95%, Bud500 4.52%
+  # (chunkformer); crosscheck PhoWhisper-small 60 câu: 9.6%/9.1%.
+  sample_min_n: 300
+  corpus_wer_max: 0.10           # vênh > 10% với ASR mạnh = nhãn kém, loại
+  rows_over_50pct_max_pct: 1.5   # row vênh nặng lẻ tẻ (đo được 0.67%/0%)
+  engines:
+    chunkformer:
+      model_id: models/chunkformer-large-vie
+      device: cpu
+
+build:
+  # Khi build train set thật (full scale): tỉ lệ row bị drop bởi các rule trên
+  # vượt mức này -> DỪNG và điều tra nguồn thay vì lặng lẽ lọc tiếp.
+  drop_rate_max_pct: 5.0
+  # Cắt validation TRƯỚC mọi filter/augment (bài học leakage sentiment S1:
+  # oversample trước split làm eval ảo). Val theo SPEAKER/nguồn nếu có metadata.
+  val_before_processing: true
+  seed: 42
