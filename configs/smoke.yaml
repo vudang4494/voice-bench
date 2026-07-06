@@ -1,0 +1,38 @@
+# Smoke round-trip end-to-end (T4/T5 verify): 5 mẫu đầu manifest_dev (đã sort
+# ngắn->dài) qua ASR small + TTS viXTTS trên CPU. Mục tiêu: pipeline chạy trọn,
+# results.jsonl đủ 5 dòng — KHÔNG phải benchmark chất lượng (số chốt dùng
+# manifest_v1 + gates).
+seed: 42
+warmup: 1
+output_dir: runs
+keep_tone: true
+tts_input_source: ref_text
+speaker_sim: false     # smoke: bỏ ECAPA để không tải model fidelity
+mos: false
+save_tts_audio: true   # giữ wav để nghe kiểm tra nhanh
+
+asr:
+  name: faster-whisper
+  kwargs:
+    model_id: vudang449/PhoWhisper-small-ct2
+    device: cpu
+    compute_type: int8
+    language: vi
+    beam_size: 5
+    vad_filter: true
+    vad_parameters:
+      min_silence_duration_ms: 300
+      speech_pad_ms: 400
+    condition_on_previous_text: false
+
+tts:
+  name: vixtts
+  kwargs:
+    model_path: models/viXTTS
+    config_path: models/viXTTS/config.json
+    device: cpu
+    language: vi
+
+dataset:
+  manifest: data/manifest_dev.jsonl
+  limit: 5

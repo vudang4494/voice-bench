@@ -54,6 +54,13 @@ HuggingFace `vudang449/*` giữ nguyên trọng số gốc, chỉ phục vụ t�
 ## Data eval
 
 - **VIVOS** — AILAB, VNU-HCM (<https://huggingface.co/datasets/AILAB-VNUHCM/vivos>),
-  **CC BY-NC-SA 4.0**. Dẫn xuất: `data/eval/` (50 clips stride + file ghép 3:16).
+  **CC BY-NC-SA 4.0**. Tải qua mirror parquet cộng đồng
+  [quocanh34/viet_vivos](https://huggingface.co/datasets/quocanh34/viet_vivos)
+  (không đổi nội dung). Dẫn xuất: `data/eval/` (50 clips stride + file ghép 3:16)
+  và phần ngắn/trung của `data/manifest_v1.jsonl`.
+- **FLEURS** — Google (<https://huggingface.co/datasets/google/fleurs>, config
+  `vi_vn`), **CC-BY-4.0** (Conneau et al., "FLEURS: Few-shot Learning Evaluation
+  of Universal Representations of Speech", 2022). Dẫn xuất: phần trung/dài của
+  `data/manifest_v1.jsonl` (validation split).
 - **VietMed** — Khai Le-Duc (<https://huggingface.co/datasets/leduckhai/VietMed>),
   dùng nghiên cứu phi thương mại, giữ attribution. Dẫn xuất: `data/eval_ood/` (38 clips).

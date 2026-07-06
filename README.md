@@ -9,7 +9,9 @@ Model weights **không nằm trong repo** — tải từ HuggingFace ([vudang449
 ```bash
 git clone https://github.com/vudang4494/voice-bench && cd voice-bench
 python3.11 -m venv venv
-venv/bin/pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt   # đủ mọi engine; hoặc cài đúng phần cần:
+# venv/bin/pip install -e '.[asr-fw,service]'   # chỉ serving STT (không torch)
+# venv/bin/pip install -e '.[tts-xtts]'         # thêm TTS viXTTS (extras: pyproject.toml)
 
 venv/bin/python scripts/download_models.py      # tải model small từ HF (~919MB; --all để thêm large)
 venv/bin/python -m pytest -q                     # unit tests, <5s, không cần model
@@ -65,6 +67,13 @@ Decode params đã tune (hardcode trong `configs/service.yaml`): beam 5 + VAD (m
 
 Rules chuẩn ở `configs/gates.yaml` (ngưỡng WER/CER/latency/determinism từ baseline đo thật + headroom). `scripts/verify_product.py` chạy product qua HTTP thật: unit tests → 6 test case chức năng → benchmark chuẩn → determinism; exit 0/1 dùng được cho CI. Nguyên tắc: **gate FAIL = điều tra, không nới ngưỡng**.
 
+TTS cũng có gate riêng (`configs/gates.tts.yaml`): synth thật qua `/v1/tts` (clone giọng từ clip eval) → audio không câm + đủ dài + RTF ≤ 1.6 + round-trip WER qua chính ASR của service ≤ 35% + contract lỗi 422/400. Chạy:
+
+```bash
+venv/bin/python scripts/verify_product.py \
+    --service-config configs/service.tts.yaml --gates configs/gates.tts.yaml
+```
+
 ## Ý tưởng đo round-trip (phần TTS)
 
 ```
@@ -76,7 +85,7 @@ out_audio ──[ASR#2]──► roundtrip_text    → đo TTS intelligibility
 
 **Cô lập lỗi**: round-trip WER trộn lỗi ASR + TTS. Mặc định TTS đọc `ref_text` nên `ΔWER = round-trip_WER − ASR_WER` là phần lỗi quy cho TTS đã trừ nền ASR. Đổi `tts_input_source: asr_text` để đo echo tích luỹ thật.
 
-TTS viXTTS **đã chạy được** (qua fork `coqui-tts` của idiap — TTS 0.22 gốc xung khắc transformers mới): trên CPU M4 synth RTF ~0.96, round-trip smoke WER 8.7% (`scripts/smoke_tts.py`). Caveat macOS: `vinorm` là binary Linux nên text có chữ số/viết tắt vào thẳng XTTS (engine tự fallback + warning).
+TTS viXTTS **đã chạy được** (qua fork `coqui-tts` của idiap — TTS 0.22 gốc xung khắc transformers mới): trên CPU M4 synth RTF ~0.90, round-trip smoke WER 8.7% (`scripts/smoke_tts.py`), gate TTS 7/7 PASS (xem Quality gates). Endpoint `/v1/tts` nhận multipart: field `text` + file `ref_audio` tùy chọn để clone giọng (`curl -F 'text=xin chào' -F 'ref_audio=@voice.wav' localhost:8386/v1/tts -o out.wav`); không nhận path server-side. Caveat macOS: `vinorm` là binary Linux nên text có chữ số/viết tắt vào thẳng XTTS (engine tự fallback + warning).
 
 ```bash
 venv/bin/python -m voicebench.run_benchmark -c configs/default.yaml
@@ -99,13 +108,15 @@ Mỗi run ghi `results.jsonl` (raw per-sample, re-aggregate được), `run_meta
 - `voicebench/engines/` — plugin: `registry.py` map tên config → class, lazy import (thiếu deps engine khác không sao). Thêm engine = viết class theo contract `base.py` + đăng ký.
 - `voicebench/metrics/` — text_norm VN, WER/CER, latency, BCa bootstrap, speaker_sim, MOS.
 - `voicebench/service.py` — FastAPI: `/v1/asr`, `/v1/tts` (503 khi chưa cấu hình), `/health`.
-- `scripts/` — `download_models.py`, `verify_product.py` (gates), `bench_models.py` (so sánh model, `--engine chunkformer` được), `smoke_tts.py` (TTS round-trip), `eval_service.py`, `tune_longform.py`, `build_eval_set.py`, `build_eval_ood.py`.
+- `scripts/` — `download_models.py`, `verify_product.py` (gates), `bench_models.py` (so sánh model, `--engine chunkformer` được), `smoke_tts.py` (TTS round-trip), `eval_service.py`, `tune_longform.py`, `build_eval_set.py`, `build_eval_ood.py`, `build_manifest_v1.py` (bộ eval chuẩn T5).
 
 ## Data eval
 
 `data/eval/` = 50 clips VIVOS test (stride-sampled, đa speaker) + file ghép 3:16 — dẫn xuất từ [VIVOS](https://huggingface.co/datasets/AILAB-VNUHCM/vivos) (CC BY-NC-SA 4.0, xem `data/eval/README.md`). Lưu ý: VIVOS nằm trong data train của PhoWhisper (và ChunkFormer) nên số đo hơi lạc quan so với audio ngoài domain.
 
 `data/eval_ood/` = 38 clips [VietMed](https://huggingface.co/datasets/leduckhai/VietMed) test (hội thoại y tế, đa accent) — đo out-of-domain cho dòng PhoWhisper; tạo lại bằng `scripts/build_eval_ood.py`.
+
+**`data/manifest_v1.jsonl` = bộ eval chuẩn ĐÓNG BĂNG (T5)** — 400 câu / 45 phút speech, phân tầng 135 ngắn (<3s) / 135 trung (3–10s) / 130 dài (10–30s), 38 câu chứa chữ số + 81 câu tên riêng/loanword; nguồn + license ghi **từng sample** (VIVOS CC BY-NC-SA cho ngắn/trung, [FLEURS](https://huggingface.co/datasets/google/fleurs) vi CC-BY-4.0 cho trung/dài — không trùng row nào với gate set `data/eval/`). Kèm `data/manifest_dev.jsonl` (30 câu tách riêng để iterate, không nhiễm bộ chính) + `data/manifest_v1.sha256` (đóng băng: v1 không bao giờ sửa, bổ sung → v2). Audio không version trong git — dựng lại: `scripts/build_manifest_v1.py` (QC máy: ChunkFormer đọc lại 100% clip đối chiếu ref; log nghe tay 20 mẫu: `data/manifest_v1/listen_check.md`).
 
 ## License & attribution
 
