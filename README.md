@@ -120,4 +120,6 @@ Mỗi run ghi `results.jsonl` (raw per-sample, re-aggregate được), `run_meta
 
 ## License & attribution
 
+**Code gốc voice-bench: [MIT](LICENSE)** — © 2026 vudang4494. Ai tái sử dụng vui lòng **giữ nguyên notice bản quyền và ghi rõ nguồn**. MIT CHỈ áp cho code trong repo này; **KHÔNG** cấp lại quyền cho model/dataset bên thứ ba dưới đây (mỗi thứ giữ license riêng).
+
 Ghi công đầy đủ (tác giả, license từng model/lib/dataset, trích dẫn) ở **[ATTRIBUTIONS.md](ATTRIBUTIONS.md)**. Tóm tắt: PhoWhisper (VinAI, BSD-3) và ChunkFormer code (Khanh Le — khanhld, CC-BY-4.0) tự do; weights ChunkFormer (CC-BY-NC-4.0) và data eval (VIVOS CC BY-NC-SA, VietMed) chỉ phi thương mại. Mirror trên vudang449 giữ nguyên trọng số.
