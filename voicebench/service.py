@@ -149,6 +149,9 @@ def create_app(config: dict | None = None, asr_engine=None, tts_engine=None) -> 
         server_total_s = time.perf_counter() - t0
         return {
             "text": result.text,
+            # segments VAD {start,end,text} cho sentiment long-form (bridge chấm
+            # theo câu). None nếu engine không cấp — client cũ chỉ đọc `text`.
+            "segments": result.segments,
             "audio": {"duration_s": round(duration_s(wav, sr), 3),
                       "sample_rate_in": sr, "bytes": len(data),
                       "filename": file.filename},

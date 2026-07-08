@@ -16,5 +16,8 @@ models/
 # tính toàn vẹn kiểm bằng data/manifest_v1.sha256 (manifest + checksum CÓ commit)
 data/manifest_v1/clips/
 
+# Train mix v1 (~17GB audio train set) — KHÔNG version; staging cục bộ cho ST-2.
+data/train_mix_v1/
+
 # Build metadata cua pip install -e
 *.egg-info/

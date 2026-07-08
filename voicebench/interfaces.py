@@ -36,6 +36,10 @@ class ASRResult:
     text: str
     latency: LatencyBreakdown
     audio_dur_s: float
+    # Segments VAD (mỗi phần tử {start, end, text}) — cho sentiment long-form chấm
+    # theo câu thay vì gộp 1 text rồi cắt cụt ở 256 token. None = engine không cấp
+    # (harness/WER chỉ dùng `text`, nên đây là bổ sung KHÔNG phá tương thích cũ).
+    segments: Optional[list] = None
 
 
 @dataclass

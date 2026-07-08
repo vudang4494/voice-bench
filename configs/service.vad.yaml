@@ -1,0 +1,40 @@
+# Config service STT bật EXTERNAL VAD CHUNKING (timestamp thật cho timeline).
+# = configs/service.yaml + vad_chunk on. Dùng cho PRODUCT path muốn timeline
+# sentiment gắn timestamp đáng tin (xem scripts/rules.vad_chunk.yaml).
+#
+# Chạy:
+#   VOICEBENCH_SERVICE_CONFIG=configs/service.vad.yaml \
+#     venv/bin/uvicorn voicebench.service:app --host 127.0.0.1 --port 8386
+#
+# Vì sao tách riêng, KHÔNG bật trong service.yaml: giữ baseline T7 + gate
+# verify_sts_longform 11/11 trên path 1-call cũ nguyên vẹn (opt-in, revertible).
+warmup: 2
+
+asr:
+  name: faster-whisper
+  kwargs:
+    model_id: vudang449/PhoWhisper-small-ct2
+    device: cpu
+    compute_type: int8
+    language: vi
+    beam_size: 5
+    # Path NGẮN (< vad_chunk.min_duration_s): giữ y hệt service.yaml (T7 tuned).
+    vad_filter: true
+    vad_parameters:
+      min_silence_duration_ms: 300
+      speech_pad_ms: 400
+    condition_on_previous_text: false
+    # Profile long-form (audio >= longform_min_s) — beam/cond cho chunk decode.
+    longform_min_s: 30.0
+    longform:
+      beam_size: 5
+      condition_on_previous_text: false
+    # ── EXTERNAL VAD CHUNKING ──
+    # audio >= min_duration_s → cắt theo VAD thành cửa sổ ≤ max_chunk_s (< 30s),
+    # decode từng cửa sổ RIÊNG → timestamp tuyệt đối đáng tin.
+    vad_chunk: true
+    vad_chunk_params:
+      max_chunk_s: 28.0        # < 30s window whisper → né lỗi ranh giới (T7)
+      min_silence_ms: 500      # gộp speech nếu lặng < mức này
+      speech_pad_ms: 200       # đệm 2 biên mỗi cửa sổ (không cụt onset/coda)
+      min_duration_s: 30.0     # ngắn hơn → path 1-call cũ
