@@ -16,6 +16,10 @@ models/
 # tính toàn vẹn kiểm bằng data/manifest_v1.sha256 (manifest + checksum CÓ commit)
 data/manifest_v1/clips/
 
+# Eval OOD2 (Bud500 spot-check) — clip audio KHÔNG version (re-host license);
+# manifest CÓ commit, dựng lại clip: scripts/build_eval_ood2.py
+data/eval_ood2/clips/
+
 # Train mix v1 (~17GB audio train set) — KHÔNG version; staging cục bộ cho ST-2.
 data/train_mix_v1/
 
